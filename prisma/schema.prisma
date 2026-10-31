@@ -1,0 +1,157 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+model User {
+  id               String   @id @default(uuid())
+  name             String?
+  email            String   @unique
+  razorpayCustomerId String? @unique
+
+  subscriptions Subscription[]
+  payments      Payment[]
+  invoices      Invoice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model Plan {
+  id            String          @id @default(uuid())
+  name          String
+  description   String?
+  priceAmount   Int
+  currency      String          @default("inr")
+  interval      BillingInterval
+  intervalCount Int             @default(1)
+  razorpayPlanId String?        @unique
+  isActive      Boolean         @default(true)
+
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String
+  planId               String
+  razorpaySubscriptionId String?          @unique
+
+  status               SubscriptionStatus @default(INCOMPLETE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+  endedAt              DateTime?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status, currentPeriodEnd])
+  @@index([planId])
+}
+
+model Payment {
+  id                      String        @id @default(uuid())
+  userId                  String
+  subscriptionId          String?
+
+  razorpayPaymentId       String?       @unique
+
+  amount                  Int
+  currency                String        @default("inr")
+  status                  PaymentStatus @default(PENDING)
+  paymentMethod           String?
+  metadata                Json?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  invoice      Invoice?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([subscriptionId])
+  @@index([createdAt])
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  invoiceNumber String   @unique
+
+  userId        String
+  paymentId     String   @unique
+
+  amount        Int
+  currency      String   @default("inr")
+  filePath      String
+  issuedAt      DateTime @default(now())
+  emailSentAt   DateTime?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, issuedAt])
+}
+
+model WebhookEvent {
+  id          String        @id @default(uuid())
+  razorpayEventId String?   @unique
+  eventType   String
+  status      WebhookStatus @default(RECEIVED)
+  payload     Json?
+  error       String?
+  receivedAt  DateTime      @default(now())
+  processedAt DateTime?
+
+  @@index([status, receivedAt])
+}

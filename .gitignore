@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Generated invoice PDFs
+storage/invoices/*
+!storage/invoices/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Local AI coding assistant configuration
+.agents/
+.claude/
+.windsurf/
+
+# Generated Prisma client
+src/generated/prisma/
